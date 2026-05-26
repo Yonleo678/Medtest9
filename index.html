@@ -58,7 +58,7 @@
         .chart-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); z-index: 1000; padding: 5%; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: scaleUp 0.3s ease; }
         
         /* Interactive items */
-        .interactive-row:hover { background-color: #fbf8f1; cursor: pointer; transition: background-color 0.2s; }
+        。interactive-row:hover { background-color: #fbf8f1; cursor: pointer; transition: background-color 0.2s; }
         
         [v-cloak] { display: none; }
     </style>
@@ -152,8 +152,8 @@
                     const toast = document.createElement('div');
                     toast。className = `toast border-l-4 ${type === 'error' ? 'border-red-500' : 'border-gold-500'}`;
                     toast.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-circle' : 'check-circle'}" class="${type === 'error' ? 'text-red-500' : 'text-gold-500'} w-5 h-5"></i><span class="text-gray-700 font-medium">${msg}</span>`;
-                    container.appendChild(toast);
-                    lucide.createIcons({ root: toast });
+                    container。appendChild(toast);
+                    lucide。createIcons({ root: toast });
                     setTimeout(() => {
                         toast.classList.add('fade-out');
                         setTimeout(() => toast.remove(), 300);
@@ -174,9 +174,9 @@
                     `;
                     document.getElementById('modals').appendChild(dialog);
                     dialog。showModal();
-                    dialog.querySelector('.btn-cancel').onclick = () => { dialog.close(); dialog.remove(); };
-                    dialog.querySelector('.btn-confirm').onclick = () => { onConfirm(); dialog.close(); dialog.remove(); };
-                },
+                    dialog。querySelector('.btn-cancel').onclick = () => { dialog.close(); dialog.remove(); };
+                    dialog。querySelector('.btn-confirm').onclick = () => { onConfirm(); dialog.close(); dialog.remove(); };
+                }，
                 parseUrlParams: () => {
                     const params = new URLSearchParams(window.location.search);
                     if(params.has('readonly')) state.isReadOnly = true;
@@ -207,7 +207,7 @@
                         { id: 'p2', name: '抖音', account: 'dy_beauty_hz' },
                         { id: 'p3', name: '小红书', account: 'xhs_aesthetic' }
                     ];
-                    state.expenses = [
+                    state。expenses = [
                         { id: 'e1', date: '2026-05-01', platformId: 'p1', amount: 15000 },
                         { id: 'e2', date: '2026-05-05', platformId: 'p2', amount: 22000 },
                         { id: 'e3', date: '2026-05-10', platformId: 'p3', amount: 8000 }
@@ -243,7 +243,7 @@
                 },
                 syncToGist: async () => {
                     if (state.isReadOnly || !state.settings.gistId || !state.settings.gistToken) return;
-                    DataStore.syncStatus('syncing');
+                    DataStore。syncStatus('syncing');
                     try {
                         const res = await fetch(`https://api.github.com/gists/${state.settings.gistId}`, {
                             method: 'PATCH',
@@ -260,7 +260,7 @@
                 },
                 fetchFromGist: async () => {
                     if (!state.settings.gistId) return;
-                    DataStore.syncStatus('syncing');
+                    DataStore。syncStatus('syncing');
                     try {
                         const tokenHeader = state.settings.gistToken ? { 'Authorization': `token ${state.settings.gistToken}` } : {};
                         const res = await fetch(`https://api.github.com/gists/${state.settings.gistId}`, { headers: tokenHeader });
@@ -346,7 +346,7 @@
                     let totalConCount = 0;
                     let totalConAmount = 0;
                     const catBreakdown = {};
-                    categories.forEach(c => catBreakdown[c] = 0);
+                    categories。forEach(c => catBreakdown[c] = 0);
 
                     conData.forEach(c => {
                         c.items.forEach(item => {
@@ -401,7 +401,7 @@
                                 </div>
                                 <div class="card p-6 border-l-4 border-l-green-400">
                                     <div class="text-sm text-gray-500 mb-1">初诊业绩投产比 (ROI)</div>
-                                    <div class="text-3xl font-bold text-gray-800">${incomeRoi} <span class="text-sm text-gray-400 font-normal">倍</span></div>
+                                    <div class="text-3xl font-bold text-gray-800">${incomeRoi} <span class="text-sm text-gray-400 font-normal"> </span></div>
                                     <div class="text-xs text-gray-400 mt-1">总业绩: ${Utils.formatMoney(totalConAmount)}</div>
                                 </div>
                             </div>
