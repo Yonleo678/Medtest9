@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>营销推广数据汇总系统 | Marketing Analytics</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Noto Sans SC', 'sans-serif'] },
+                    colors: {
+                        gold: { 50: '#fbf8f1', 100: '#f7f0e3', 400: '#e6c27a', 500: '#d4af37', 600: '#c5a028' },
+                        silver: { 100: '#f8f9fa', 300: '#e2e8f0', 500: '#c0c0c0', 600: '#a0a0a0' }
+                    },
+                    boxShadow: {
+                        'apple': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                        'apple-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom Styles & Animations */
+        body { background-color: #fcfcfc; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .card { background: #ffffff; border-radius: 16px; box-shadow: var(--tw-shadow-apple); border: 1px solid #f0f0f0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { box-shadow: var(--tw-shadow-apple-lg); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        /* Modal & Animations */
+        dialog::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
+        dialog { border: none; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes fadeOut { to { opacity: 0; pointer-events: none; } }
+        
+        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: white; border-radius: 12px; padding: 12px 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1); border-left: 4px solid var(--tw-colors-gold-500); }
+        .fade-out { animation: fadeOut 0.3s forwards; }
+
+        /* Fullscreen Chart */
+        .chart-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); z-index: 1000; padding: 5%; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: scaleUp 0.3s ease; }
+        
+        /* Interactive items */
+        .interactive-row:hover { background-color: #fbf8f1; cursor: pointer; transition: background-color 0.2s; }
+        
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-sm md:text-base">
+
+    <aside id="sidebar" class="w-64 glass h-full flex flex-col absolute md:relative z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+        <div class="h-16 flex items-center px-6 border-b border-gray-100">
+            <i data-lucide="bar-chart-2" class="text-gold-500 mr-2"></i>
+            <span class="font-bold text-lg tracking-wider text-gray-800">营销数据中枢</span>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto" id="nav-menu">
+            </nav>
+        <div class="p-4 border-t border-gray-100 text-xs text-gray-400 flex justify-between items-center">
+            <span>v1.0.0 Pro</span>
+            <span id="read-only-badge" class="hidden px-2 py-1 bg-red-50 text-red-500 rounded-md font-medium">只读模式</span>
+        </div>
+    </aside>
+
+    <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+    <main class="flex-1 flex flex-col h-full relative overflow-hidden bg-[#fcfcfc]">
+        <header class="h-16 glass flex items-center justify-between px-6 z-20">
+            <div class="flex items-center">
+                <button class="md:hidden mr-4 p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition" onclick="toggleSidebar()">
+                    <i data-lucide="menu"></i>
+                </button>
+                <h1 id="page-title" class="text-xl font-bold text-gray-800">数据看板</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="sync-status" class="flex items-center text-xs text-gray-500 transition-all">
+                    <i data-lucide="cloud" class="w-4 h-4 mr-1"></i> <span>本地存储</span>
+                </div>
+                <button onclick="App.exportData()" class="hidden md:flex items-center px-3 py-1.5 bg-silver-100 text-gray-700 rounded-lg hover:bg-silver-300 transition text-sm">
+                    <i data-lucide="download" class="w-4 h-4 mr-1"></i> 导出 Excel
+                </button>
+            </div>
+        </header>
+
+        <div id="view-container" class="flex-1 overflow-y-auto p-4 md:p-8">
+            </div>
+    </main>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <div id="modals"></div>
+
+    <script>
+        // ==========================================
+        // 1. CORE ARCHITECTURE & STATE MANAGEMENT
+        // ==========================================
+        const App = (() => {
+            // State
+            let state = {
+                platforms: [],
+                expenses: [],
+                consultations: [],
+                logs: [],
+                settings: { gistId: '', gistToken: '' },
+                trash: [],
+                activeMenu: 'dashboard',
+                isReadOnly: false
+            };
+
+            // Menus Definition
+            const menus = [
+                { id: 'dashboard', icon: 'layout-dashboard', label: '数据看板' },
+                { id: 'platforms', icon: 'layers', label: '多平台管理' },
+                { id: 'expenses', icon: 'credit-card', label: '推广费用记录' },
+                { id: 'consultations', icon: 'users', label: '初诊数据追踪' },
+                { id: 'settings', icon: 'settings', label: '系统设置' }
+            ];
+
+            // Categories
+            const categories = ['脱毛护理', '皮肤项目', '注射项目', '手术项目'];
+
+            // ==========================================
+            // 2. UTILS & HELPERS
+            // ==========================================
+            const Utils = {
+                generateId: () => Date.now().toString(36) + Math.random().toString(36).substring(2),
+                formatDate: (dateStr) => new Date(dateStr).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+                formatMoney: (num) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 0 }).format(num),
+                logAction: (action, details) => {
+                    if(state.isReadOnly) return;
+                    state.logs.unshift({ id: Utils.generateId(), time: new Date().toISOString(), action, details });
+                    if(state.logs.length > 50) state.logs.pop(); // Keep last 50
+                },
+                toast: (msg, type = 'success') => {
+                    const container = document.getElementById('toast-container');
+                    const toast = document.createElement('div');
+                    toast.className = `toast border-l-4 ${type === 'error' ? 'border-red-500' : 'border-gold-500'}`;
+                    toast.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-circle' : 'check-circle'}" class="${type === 'error' ? 'text-red-500' : 'text-gold-500'} w-5 h-5"></i><span class="text-gray-700 font-medium">${msg}</span>`;
+                    container.appendChild(toast);
+                    lucide.createIcons({ root: toast });
+                    setTimeout(() => {
+                        toast.classList.add('fade-out');
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                },
+                confirm: (title, message, onConfirm) => {
+                    const dialog = document.createElement('dialog');
+                    dialog.className = 'w-11/12 md:w-[400px] p-0';
+                    dialog.innerHTML = `
+                        <div class="p-6">
+                            <h3 class="text-lg font-bold text-gray-800 mb-2">${title}</h3>
+                            <p class="text-gray-600 mb-6">${message}</p>
+                            <div class="flex justify-end gap-3">
+                                <button type="button" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition btn-cancel">取消</button>
+                                <button type="button" class="px-4 py-2 text-white bg-red-500 hover:bg-red-600 rounded-lg transition btn-confirm">确认执行</button>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('modals').appendChild(dialog);
+                    dialog.showModal();
+                    dialog.querySelector('.btn-cancel').onclick = () => { dialog.close(); dialog.remove(); };
+                    dialog.querySelector('.btn-confirm').onclick = () => { onConfirm(); dialog.close(); dialog.remove(); };
+                },
+                parseUrlParams: () => {
+                    const params = new URLSearchParams(window.location.search);
+                    if(params.has('readonly')) state.isReadOnly = true;
+                    if(params.has('gist')) state.settings.gistId = params.get('gist');
+                    if(params.has('token')) state.settings.gistToken = params.get('token');
+                    
+                    // Handle Magic Link (base64 encoded 'm' param)
+                    if(params.has('m')) {
+                        try {
+                            const decoded = JSON.parse(atob(params.get('m')));
+                            if(decoded.g) state.settings.gistId = decoded.g;
+                            if(decoded.t) state.settings.gistToken = decoded.t;
+                            if(decoded.r) state.isReadOnly = true;
+                        } catch(e) { console.error('Magic link parse error'); }
+                    }
+                    
+                    if(state.isReadOnly) document.getElementById('read-only-badge').classList.remove('hidden');
+                }
+            };
+
+            // ==========================================
+            // 3. DATA & CLOUD SYNC
+            // ==========================================
+            const DataStore = {
+                initMockData: () => {
+                    state.platforms = [
+                        { id: 'p1', name: '美团/大众点评', account: 'mt_official_01' },
+                        { id: 'p2', name: '抖音', account: 'dy_beauty_hz' },
+                        { id: 'p3', name: '小红书', account: 'xhs_aesthetic' }
+                    ];
+                    state.expenses = [
+                        { id: 'e1', date: '2026-05-01', platformId: 'p1', amount: 15000 },
+                        { id: 'e2', date: '2026-05-05', platformId: 'p2', amount: 22000 },
+                        { id: 'e3', date: '2026-05-10', platformId: 'p3', amount: 8000 }
+                    ];
+                    state.consultations = [
+                        { id: 'c1', date: '2026-05-02', platformId: 'p1', category: '皮肤项目', items: [{ name: 'M22光子嫩肤', count: 12, amount: 11760 }, { name: '超声炮', count: 3, amount: 29400 }] },
+                        { id: 'c2', date: '2026-05-06', platformId: 'p2', category: '注射项目', items: [{ name: '肉毒除皱', count: 20, amount: 19600 }] },
+                        { id: 'c3', date: '2026-05-12', platformId: 'p3', category: '手术项目', items: [{ name: '眼综合', count: 2, amount: 39600 }] }
+                    ];
+                    Utils.logAction('系统初始化', '自动生成演示数据');
+                },
+                saveLocal: () => {
+                    localStorage.setItem('marketing_data', JSON.stringify(state));
+                    DataStore.syncToGist(); // Trigger cloud sync
+                },
+                loadLocal: () => {
+                    const data = localStorage.getItem('marketing_data');
+                    if (data) {
+                        const parsed = JSON.parse(data);
+                        // Merge parsed data but respect URL params for settings
+                        state = { ...parsed, settings: { ...parsed.settings, ...state.settings }, isReadOnly: state.isReadOnly };
+                    } else {
+                        DataStore.initMockData();
+                    }
+                },
+                syncStatus: (status) => {
+                    const el = document.getElementById('sync-status');
+                    const icons = { 'syncing': 'refresh-cw', 'synced': 'cloud-snow', 'error': 'cloud-off', 'local': 'cloud' };
+                    const texts = { 'syncing': '云端同步中...', 'synced': '云端已同步', 'error': '同步失败', 'local': '本地存储' };
+                    const spin = status === 'syncing' ? 'animate-spin' : '';
+                    el.innerHTML = `<i data-lucide="${icons[status]}" class="w-4 h-4 mr-1 ${spin} ${status==='error'?'text-red-500':(status==='synced'?'text-gold-500':'text-gray-500')}"></i> <span class="${status==='error'?'text-red-500':''}">${texts[status]}</span>`;
+                    lucide.createIcons({ root: el });
+                },
+                syncToGist: async () => {
+                    if (state.isReadOnly || !state.settings.gistId || !state.settings.gistToken) return;
+                    DataStore.syncStatus('syncing');
+                    try {
+                        const res = await fetch(`https://api.github.com/gists/${state.settings.gistId}`, {
+                            method: 'PATCH',
+                            headers: { 'Authorization': `token ${state.settings.gistToken}`, 'Accept': 'application/vnd.github.v3+json' },
+                            body: JSON.stringify({
+                                files: { 'marketing_data.json': { content: JSON.stringify(state) } }
+                            })
+                        });
+                        if (res.ok) { DataStore.syncStatus('synced'); } else { throw new Error('Sync failed'); }
+                    } catch (e) {
+                        console.error(e);
+                        DataStore.syncStatus('error');
+                    }
+                },
+                fetchFromGist: async () => {
+                    if (!state.settings.gistId) return;
+                    DataStore.syncStatus('syncing');
+                    try {
+                        const tokenHeader = state.settings.gistToken ? { 'Authorization': `token ${state.settings.gistToken}` } : {};
+                        const res = await fetch(`https://api.github.com/gists/${state.settings.gistId}`, { headers: tokenHeader });
+                        if (res.ok) {
+                            const gist = await res.json();
+                            const content = gist.files['marketing_data.json'].content;
+                            const cloudState = JSON.parse(content);
+                            // Preserve local token/id/readonly if they exist
+                            state = { ...cloudState, settings: { ...cloudState.settings, gistId: state.settings.gistId, gistToken: state.settings.gistToken || cloudState.settings.gistToken }, isReadOnly: state.isReadOnly };
+                            DataStore.syncStatus('synced');
+                            Render.activeView();
+                        } else throw new Error('Fetch failed');
+                    } catch (e) {
+                        console.error(e);
+                        DataStore.syncStatus('error');
+                        Utils.toast('云端数据拉取失败，使用本地数据', 'error');
+                    }
+                }
+            };
+
+            // ==========================================
+            // 4. RENDERING ENGINE
+            // ==========================================
+            const Render = {
+                init: () => {
+                    Render.sidebar();
+                    Render.activeView();
+                },
+                sidebar: () => {
+                    const menuHtml = menus.map(m => `
+                        <a href="#" onclick="App.navigate('${m.id}')" 
+                           class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${state.activeMenu === m.id ? 'bg-gold-50 text-gold-600 font-medium shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}">
+                            <i data-lucide="${m.icon}" class="w-5 h-5 mr-3 ${state.activeMenu === m.id ? 'text-gold-500' : ''}"></i>
+                            ${m.label}
+                        </a>
+                    `).join('');
+                    document.getElementById('nav-menu').innerHTML = menuHtml;
+                    lucide.createIcons();
+                },
+                activeView: () => {
+                    const container = document.getElementById('view-container');
+                    const title = document.getElementById('page-title');
+                    title.innerText = menus.find(m => m.id === state.activeMenu).label;
+                    
+                    container.style.opacity = '0';
+                    setTimeout(() => {
+                        container.innerHTML = Views[state.activeMenu]();
+                        lucide.createIcons({ root: container });
+                        if(Views[`${state.activeMenu}PostRender`]) Views[`${state.activeMenu}PostRender`]();
+                        container.style.opacity = '1';
+                        container.style.transition = 'opacity 0.3s ease';
+                    }, 150);
+                    Render.sidebar();
+                }
+            };
+
+            // ==========================================
+            // 5. VIEWS (Dashboard, Platforms, etc.)
+            // ==========================================
+            const Views = {
+                // --- DASHBOARD ---
+                dashboard: () => {
+                    // Filters
+                    const monthFilter = document.getElementById('dash-month')?.value || 'all';
+                    const platFilter = document.getElementById('dash-plat')?.value || 'all';
+
+                    // Data calc
+                    let expData = state.expenses;
+                    let conData = state.consultations;
+
+                    if(monthFilter !== 'all') {
+                        expData = expData.filter(e => e.date.startsWith(monthFilter));
+                        conData = conData.filter(c => c.date.startsWith(monthFilter));
+                    }
+                    if(platFilter !== 'all') {
+                        expData = expData.filter(e => e.platformId === platFilter);
+                        conData = conData.filter(c => c.platformId === platFilter);
+                    }
+
+                    const totalExp = expData.reduce((sum, e) => sum + Number(e.amount), 0);
+                    
+                    // Calc initial consults (count & amount)
+                    let totalConCount = 0;
+                    let totalConAmount = 0;
+                    const catBreakdown = {};
+                    categories.forEach(c => catBreakdown[c] = 0);
+
+                    conData.forEach(c => {
+                        c.items.forEach(item => {
+                            totalConCount += Number(item.count);
+                            const itemAmt = Number(item.amount);
+                            totalConAmount += itemAmt;
+                            catBreakdown[c.category] += itemAmt;
+                        });
+                    });
+
+                    const roi = totalConCount > 0 ? (totalExp / totalConCount).toFixed(2) : 0;
+                    const incomeRoi = totalExp > 0 ? (totalConAmount / totalExp).toFixed(2) : 0; // 业绩投产比
+
+                    // Months options
+                    const monthsSet = new Set([...state.expenses.map(e=>e.date.substring(0,7)), ...state.consultations.map(c=>c.date.substring(0,7))]);
+                    const monthOpts = Array.from(monthsSet).sort().reverse().map(m => `<option value="${m}" ${monthFilter===m?'selected':''}>${m}</option>`).join('');
+                    const platOpts = state.platforms.map(p => `<option value="${p.id}" ${platFilter===p.id?'selected':''}>${p.name}</option>`).join('');
+
+                    window._chartData = catBreakdown; // save for post render
+
+                    return `
+                        <div class="space-y-6">
+                            <div class="flex flex-wrap gap-4 items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i>
+                                    <select id="dash-month" onchange="App.refreshDashboard()" class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-gold-500 focus:border-gold-500 block p-2 outline-none">
+                                        <option value="all">所有月份</option>
+                                        ${monthOpts}
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="filter" class="w-4 h-4 text-gray-400"></i>
+                                    <select id="dash-plat" onchange="App.refreshDashboard()" class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-gold-500 focus:border-gold-500 block p-2 outline-none">
+                                        <option value="all">全渠道总汇</option>
+                                        ${platOpts}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div class="card p-6 border-l-4 border-l-gray-800">
+                                    <div class="text-sm text-gray-500 mb-1">总推广花费</div>
+                                    <div class="text-3xl font-bold text-gray-800">${Utils.formatMoney(totalExp)}</div>
+                                </div>
+                                <div class="card p-6 border-l-4 border-l-gold-400">
+                                    <div class="text-sm text-gray-500 mb-1">初诊总人数</div>
+                                    <div class="text-3xl font-bold text-gray-800">${totalConCount} <span class="text-base font-normal text-gray-400">人</span></div>
+                                </div>
+                                <div class="card p-6 border-l-4 border-l-blue-400">
+                                    <div class="text-sm text-gray-500 mb-1">单客获客成本 (CPA)</div>
+                                    <div class="text-3xl font-bold text-gray-800">¥${roi} <span class="text-sm text-gray-400 font-normal">/人</span></div>
+                                </div>
+                                <div class="card p-6 border-l-4 border-l-green-400">
+                                    <div class="text-sm text-gray-500 mb-1">初诊业绩投产比 (ROI)</div>
+                                    <div class="text-3xl font-bold text-gray-800">${incomeRoi} <span class="text-sm text-gray-400 font-normal">倍</span></div>
+                                    <div class="text-xs text-gray-400 mt-1">总业绩: ${Utils.formatMoney(totalConAmount)}</div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="card p-6 lg:col-span-1 relative group cursor-pointer" onclick="App.fullscreenChart()">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
+                                        <span>品项消费占比</span>
+                                        <i data-lucide="maximize-2" class="w-4 h-4 text-gray-300 group-hover:text-gold-500 transition"></i>
+                                    </h3>
+                                    <div class="relative h-64 w-full flex justify-center">
+                                        <canvas id="catPieChart"></canvas>
+                                    </div>
+                                    <p class="text-xs text-center text-gray-400 mt-4">点击图表可放大查看详细数据</p>
+                                </div>
+                                
+                                <div class="card p-6 lg:col-span-2 overflow-hidden flex flex-col">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-4">近期操作日志</h3>
+                                    <div class="flex-1 overflow-y-auto pr-2 space-y-3">
+                                        ${state.logs.slice(0, 8).map(log => `
+                                            <div class="flex items-start gap-3 text-sm pb-3 border-b border-gray-50 last:border-0">
+                                                <div class="w-2 h-2 rounded-full bg-gold-400 mt-1.5"></div>
+                                                <div class="flex-1">
+                                                    <div class="text-gray-800 font-medium">${log.action}</div>
+                                                    <div class="text-gray-500 text-xs">${log.details}</div>
+                                                </div>
+                                                <div class="text-gray-400 text-xs">${new Date(log.time).toLocaleString('zh-CN')}</div>
+                                            </div>
+                                        `).join('') || '<div class="text-gray-400 text-center py-10">暂无操作日志</div>'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                },
+                dashboardPostRender: () => {
+                    const ctx = document.getElementById('catPieChart');
+                    if(ctx && window._chartData) {
+                        const data = Object.values(window._chartData);
+                        const labels = Object.keys(window._chartData);
+                        if(window.mainChart) window.mainChart.destroy();
+                        window.mainChart = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    data: data,
+                                    backgroundColor: ['#d4af37', '#1f2937', '#9ca3af', '#f3f4f6'],
+                                    borderWidth: 0,
+                                    hoverOffset: 4
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }, cutout: '65%' }
+                        });
+                    }
+                },
+
+                // --- PLATFORMS ---
+                platforms: () => {
+                    return `
+                        <div class="card p-6 flex flex-col h-full">
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-lg font-bold text-gray-800">营销平台管理</h2>
+                                ${!state.isReadOnly ? `<button onclick="App.openPlatformModal()" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i>新增平台</button>` : ''}
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-50 text-gray-500 text-sm">
+                                            <th class="p-4 font-medium rounded-tl-lg">平台名称</th>
+                                            <th class="p-4 font-medium">账户标识</th>
+                                            <th class="p-4 font-medium">累计花费</th>
+                                            <th class="p-4 font-medium text-right rounded-tr-lg">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        ${state.platforms.map(p => {
+                                            const total = state.expenses.filter(e => e.platformId === p.id).reduce((s, e) => s + Number(e.amount), 0);
+                                            return `
+                                            <tr class="interactive-row group">
+                                                <td class="p-4 text-gray-800 font-medium">${p.name}</td>
+                                                <td class="p-4 text-gray-500"><span class="px-2 py-1 bg-gray-100 rounded text-xs">${p.account}</span></td>
+                                                <td class="p-4 text-gray-800">${Utils.formatMoney(total)}</td>
+                                                <td class="p-4 text-right">
+                                                    ${!state.isReadOnly ? `
+                                                    <button onclick="App.openPlatformModal('${p.id}')" class="text-gray-400 hover:text-gold-500 mr-3 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                                    <button onclick="App.deletePlatform('${p.id}')" class="text-gray-400 hover:text-red-500 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                    ` : '<span class="text-gray-300 text-xs">无权限</span>'}
+                                                </td>
+                                            </tr>
+                                        `}).join('') || '<tr><td colspan="4" class="p-8 text-center text-gray-400">暂无平台数据</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                // --- EXPENSES ---
+                expenses: () => {
+                    return `
+                        <div class="card p-6 flex flex-col h-full">
+                            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                                <h2 class="text-lg font-bold text-gray-800">推广费用明细</h2>
+                                ${!state.isReadOnly ? `
+                                <div class="flex gap-2">
+                                    <button onclick="App.openExpenseModal()" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i>记一笔花费</button>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-50 text-gray-500 text-sm">
+                                            <th class="p-4 font-medium rounded-tl-lg">日期</th>
+                                            <th class="p-4 font-medium">推广平台</th>
+                                            <th class="p-4 font-medium">投入金额</th>
+                                            <th class="p-4 font-medium text-right rounded-tr-lg">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        ${state.expenses.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e => {
+                                            const pName = state.platforms.find(p => p.id === e.platformId)?.name || '<span class="text-red-400">已删除平台</span>';
+                                            return `
+                                            <tr class="interactive-row group">
+                                                <td class="p-4 text-gray-800">${e.date}</td>
+                                                <td class="p-4 text-gray-800 font-medium">${pName}</td>
+                                                <td class="p-4 text-gray-800 font-bold">${Utils.formatMoney(e.amount)}</td>
+                                                <td class="p-4 text-right">
+                                                    ${!state.isReadOnly ? `
+                                                    <button onclick="App.openExpenseModal('${e.id}')" class="text-gray-400 hover:text-gold-500 mr-3 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                                    <button onclick="App.deleteRecord('expenses', '${e.id}')" class="text-gray-400 hover:text-red-500 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                    ` : '-'}
+                                                </td>
+                                            </tr>
+                                        `}).join('') || '<tr><td colspan="4" class="p-8 text-center text-gray-400">暂无费用记录</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                // --- CONSULTATIONS ---
+                consultations: () => {
+                    return `
+                        <div class="card p-6 flex flex-col h-full">
+                            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                                <h2 class="text-lg font-bold text-gray-800">客户初诊追踪 (闭环入项)</h2>
+                                ${!state.isReadOnly ? `
+                                <div class="flex gap-2">
+                                    <button onclick="App.openConsultationModal()" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i>录入初诊</button>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-50 text-gray-500 text-sm">
+                                            <th class="p-4 font-medium rounded-tl-lg">日期</th>
+                                            <th class="p-4 font-medium">引流来源</th>
+                                            <th class="p-4 font-medium">大类</th>
+                                            <th class="p-4 font-medium">明细项目 (人数 / 金额)</th>
+                                            <th class="p-4 font-medium">总人数</th>
+                                            <th class="p-4 font-medium">总金额</th>
+                                            <th class="p-4 font-medium text-right rounded-tr-lg">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 text-sm">
+                                        ${state.consultations.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(c => {
+                                            const pName = state.platforms.find(p => p.id === c.platformId)?.name || '<span class="text-red-400">已删除平台</span>';
+                                            const totalCount = c.items.reduce((s, i) => s + Number(i.count), 0);
+                                            const totalAmt = c.items.reduce((s, i) => s + Number(i.amount), 0);
+                                            return `
+                                            <tr class="interactive-row group">
+                                                <td class="p-4 text-gray-800">${c.date}</td>
+                                                <td class="p-4 text-gray-800">${pName}</td>
+                                                <td class="p-4"><span class="px-2 py-1 bg-gold-50 text-gold-600 rounded text-xs border border-gold-100">${c.category}</span></td>
+                                                <td class="p-4 text-gray-600">
+                                                    <div class="space-y-1">
+                                                        ${c.items.map(item => `<div><span class="font-medium text-gray-800">${item.name}</span> <span class="text-xs text-gray-400 ml-1">(${item.count}人 / ${Utils.formatMoney(item.amount)})</span></div>`).join('')}
+                                                    </div>
+                                                </td>
+                                                <td class="p-4 text-gray-800 font-bold">${totalCount}</td>
+                                                <td class="p-4 text-gray-800 font-bold text-gold-600">${Utils.formatMoney(totalAmt)}</td>
+                                                <td class="p-4 text-right align-top">
+                                                    ${!state.isReadOnly ? `
+                                                    <button onclick="App.openConsultationModal('${c.id}')" class="text-gray-400 hover:text-gold-500 mr-3 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                                    <button onclick="App.deleteRecord('consultations', '${c.id}')" class="text-gray-400 hover:text-red-500 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                    ` : '-'}
+                                                </td>
+                                            </tr>
+                                        `}).join('') || '<tr><td colspan="7" class="p-8 text-center text-gray-400">暂无初诊记录</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                // --- SETTINGS ---
+                settings: () => {
+                    const mLink = `${window.location.origin}${window.location.pathname}?m=${btoa(JSON.stringify({g: state.settings.gistId, t: state.settings.gistToken}))}`;
+                    const rLink = `${window.location.origin}${window.location.pathname}?m=${btoa(JSON.stringify({g: state.settings.gistId, r: 1}))}`;
+
+                    return `
+                        <div class="max-w-3xl space-y-6">
+                            <div class="card p-6">
+                                <h2 class="text-lg font-bold text-gray-800 mb-2">云端同步配置 (GitHub Gist)</h2>
+                                <p class="text-sm text-gray-500 mb-6">配置后数据将自动实时同步至云端，实现跨设备无缝管理。仅需填写一次自动保存。</p>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Gist ID</label>
+                                        <input type="text" id="set-gist-id" value="${state.settings.gistId}" onchange="App.saveSettings()" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg focus:ring-gold-500 focus:border-gold-500 block p-2.5 outline-none transition" placeholder="例如: 8a9b2c3d4e...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Personal Access Token (PAT)</label>
+                                        <input type="password" id="set-gist-token" value="${state.settings.gistToken}" onchange="App.saveSettings()" class="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-lg focus:ring-gold-500 focus:border-gold-500 block p-2.5 outline-none transition" placeholder="ghp_xxxxxxxxxxxx...">
+                                    </div>
+                                    <div class="pt-4 flex gap-3 border-t border-gray-100">
+                                        <button onclick="DataStore.fetchFromGist()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4"></i>手动拉取</button>
+                                        <button onclick="DataStore.syncToGist()" class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition flex items-center gap-2"><i data-lucide="upload-cloud" class="w-4 h-4"></i>强制覆盖云端</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card p-6">
+                                <h2 class="text-lg font-bold text-gray-800 mb-2">魔术链接生成</h2>
+                                <p class="text-sm text-gray-500 mb-6">生成简短但有效的书签链接，便于快速访问您的系统。请妥善保管管理链接。</p>
+                                
+                                <div class="space-y-4">
+                                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between gap-4">
+                                        <div class="flex-1 overflow-hidden">
+                                            <div class="text-sm font-bold text-gray-800 mb-1">管理员专属链接 <span class="text-xs font-normal text-red-500 ml-2">⚠️ 包含Token，勿泄露</span></div>
+                                            <div class="text-xs text-gray-400 truncate">${mLink}</div>
+                                        </div>
+                                        <button onclick="App.copyText('${mLink}')" class="shrink-0 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">复制链接</button>
+                                    </div>
+                                    
+                                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between gap-4">
+                                        <div class="flex-1 overflow-hidden">
+                                            <div class="text-sm font-bold text-gray-800 mb-1">只读展示链接 <span class="text-xs font-normal text-green-500 ml-2">✅ 安全分享给老板或同事</span></div>
+                                            <div class="text-xs text-gray-400 truncate">${rLink}</div>
+                                        </div>
+                                        <button onclick="App.copyText('${rLink}')" class="shrink-0 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">复制链接</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            };
+
+            // ==========================================
+            // 6. BUSINESS LOGIC & MODALS
+            // ==========================================
+            return {
+                init: () => {
+                    Utils.parseUrlParams();
+                    DataStore.loadLocal();
+                    Render.init();
+                    // Load remote if gist configured
+                    if (state.settings.gistId && !state.isReadOnly) DataStore.fetchFromGist();
+                },
+                navigate: (id) => { state.activeMenu = id; Render.activeView(); if(window.innerWidth<768) toggleSidebar(); },
+                refreshDashboard: () => { if(state.activeMenu === 'dashboard') Render.activeView(); },
+                
+                // Form Modals
+                openPlatformModal: (id = null) => {
+                    const p = id ? state.platforms.find(x => x.id === id) : { name: '', account: '' };
+                    App.showModal('平台配置', `
+                        <form id="plat-form" class="space-y-4">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">平台名称</label>
+                            <input type="text" id="p-name" value="${p.name}" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none focus:border-gold-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">账户标识</label>
+                            <input type="text" id="p-acc" value="${p.account}" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none focus:border-gold-500"></div>
+                        </form>
+                    `, () => {
+                        const name = document.getElementById('p-name').value;
+                        const account = document.getElementById('p-acc').value;
+                        if(!name || !account) return Utils.toast('请填写完整', 'error');
+                        if(id) {
+                            const idx = state.platforms.findIndex(x => x.id === id);
+                            state.platforms[idx] = { ...state.platforms[idx], name, account };
+                            Utils.logAction('编辑平台', `更新平台: ${name}`);
+                        } else {
+                            state.platforms.push({ id: Utils.generateId(), name, account });
+                            Utils.logAction('新增平台', `添加平台: ${name}`);
+                        }
+                        DataStore.saveLocal(); Render.activeView(); Utils.toast('保存成功');
+                    });
+                },
+
+                openExpenseModal: (id = null) => {
+                    if(state.platforms.length === 0) return Utils.toast('请先在多平台管理中添加平台', 'error');
+                    const e = id ? state.expenses.find(x => x.id === id) : { date: new Date().toISOString().split('T')[0], platformId: state.platforms[0].id, amount: '' };
+                    
+                    const opts = state.platforms.map(p => `<option value="${p.id}" ${p.id===e.platformId?'selected':''}>${p.name}</option>`).join('');
+                    
+                    App.showModal('推广花费录入', `
+                        <form id="exp-form" class="space-y-4">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                            <input type="date" id="e-date" value="${e.date}" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none focus:border-gold-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">投放平台</label>
+                            <select id="e-plat" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none focus:border-gold-500">${opts}</select></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">花费金额 (元)</label>
+                            <input type="number" id="e-amt" value="${e.amount}" required min="0" step="0.01" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none focus:border-gold-500"></div>
+                        </form>
+                    `, () => {
+                        const date = document.getElementById('e-date').value;
+                        const platformId = document.getElementById('e-plat').value;
+                        const amount = document.getElementById('e-amt').value;
+                        if(!date || !amount) return Utils.toast('请填写完整', 'error');
+                        if(id) {
+                            const idx = state.expenses.findIndex(x => x.id === id);
+                            state.expenses[idx] = { ...state.expenses[idx], date, platformId, amount: Number(amount) };
+                            Utils.logAction('编辑花费', `修改日期: ${date}`);
+                        } else {
+                            state.expenses.push({ id: Utils.generateId(), date, platformId, amount: Number(amount) });
+                            Utils.logAction('新增花费', `记录金额: ${amount}`);
+                        }
+                        DataStore.saveLocal(); Render.activeView(); Utils.toast('保存成功');
+                    });
+                },
+
+                openConsultationModal: (id = null) => {
+                    if(state.platforms.length === 0) return Utils.toast('请先添加平台', 'error');
+                    let c = id ? state.consultations.find(x => x.id === id) : { date: new Date().toISOString().split('T')[0], platformId: state.platforms[0].id, category: categories[0], items: [{name: '', count: 1, amount: ''}] };
+                    
+                    window._tempItems = JSON.parse(JSON.stringify(c.items)); // simple state for complex form
+
+                    const renderSubItems = () => {
+                        return window._tempItems.map((item, idx) => `
+                            <div class="flex gap-2 items-center mb-2">
+                                <input type="text" placeholder="项目名" value="${item.name}" onchange="window._tempItems[${idx}].name=this.value" class="flex-1 bg-white border border-gray-200 text-sm rounded-lg p-2 outline-none">
+                                <input type="number" placeholder="人数" value="${item.count}" onchange="window._tempItems[${idx}].count=this.value" class="w-20 bg-white border border-gray-200 text-sm rounded-lg p-2 outline-none">
+                                <input type="number" placeholder="金额" value="${item.amount}" onchange="window._tempItems[${idx}].amount=this.value" class="w-24 bg-white border border-gray-200 text-sm rounded-lg p-2 outline-none">
+                                <button type="button" onclick="App.modSubItem('del', ${idx})" class="text-red-400 hover:text-red-600 p-2"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
+                            </div>
+                        `).join('');
+                    };
+
+                    App.showModal('初诊数据录入', `
+                        <form id="con-form" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                                <input type="date" id="c-date" value="${c.date}" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">引流来源</label>
+                                <select id="c-plat" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none">${state.platforms.map(p => `<option value="${p.id}" ${p.id===c.platformId?'selected':''}>${p.name}</option>`).join('')}</select></div>
+                            </div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">大类选择</label>
+                            <select id="c-cat" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none">${categories.map(cat => `<option value="${cat}" ${cat===c.category?'selected':''}>${cat}</option>`).join('')}</select></div>
+                            
+                            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-sm font-medium text-gray-700">明细项目 (品项/人数/总金额)</label>
+                                    <button type="button" onclick="App.modSubItem('add')" class="text-gold-600 text-xs flex items-center"><i data-lucide="plus" class="w-3 h-3 mr-1"></i>添加子项</button>
+                                </div>
+                                <div id="sub-items-container">${renderSubItems()}</div>
+                            </div>
+                        </form>
+                    `, () => {
+                        const date = document.getElementById('c-date').value;
+                        const platformId = document.getElementById('c-plat').value;
+                        const category = document.getElementById('c-cat').value;
+                        // Filter empty items
+                        const validItems = window._tempItems.filter(i => i.name.trim() !== '' && i.amount !== '');
+                        if(validItems.length === 0) return Utils.toast('请至少填写一个完整明细项', 'error');
+
+                        if(id) {
+                            const idx = state.consultations.findIndex(x => x.id === id);
+                            state.consultations[idx] = { ...state.consultations[idx], date, platformId, category, items: validItems };
+                            Utils.logAction('编辑初诊', `更新日期: ${date}`);
+                        } else {
+                            state.consultations.push({ id: Utils.generateId(), date, platformId, category, items: validItems });
+                            Utils.logAction('新增初诊', `记录大类: ${category}`);
+                        }
+                        DataStore.saveLocal(); Render.activeView(); Utils.toast('保存成功');
+                    });
+                    
+                    // Expose re-render for modal
+                    App.modSubItem = (act, idx) => {
+                        if(act === 'add') window._tempItems.push({name:'', count: 1, amount:''});
+                        if(act === 'del') window._tempItems.splice(idx, 1);
+                        document.getElementById('sub-items-container').innerHTML = renderSubItems();
+                        lucide.createIcons({ root: document.getElementById('sub-items-container') });
+                    };
+                },
+
+                showModal: (title, content, onSave) => {
+                    const dialog = document.createElement('dialog');
+                    dialog.className = 'w-11/12 md:w-[500px] p-0';
+                    dialog.innerHTML = `
+                        <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 class="text-lg font-bold text-gray-800">${title}</h3>
+                            <button type="button" class="btn-close text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <div class="p-6">${content}</div>
+                        <div class="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
+                            <button type="button" class="btn-cancel px-4 py-2 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition shadow-sm">取消</button>
+                            <button type="button" class="btn-save px-4 py-2 text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition shadow-sm">保存并同步</button>
+                        </div>
+                    `;
+                    document.getElementById('modals').appendChild(dialog);
+                    lucide.createIcons({ root: dialog });
+                    dialog.showModal();
+                    const close = () => { dialog.close(); dialog.remove(); };
+                    dialog.querySelector('.btn-close').onclick = close;
+                    dialog.querySelector('.btn-cancel').onclick = close;
+                    dialog.querySelector('.btn-save').onclick = () => { onSave(); close(); };
+                },
+
+                deletePlatform: (id) => {
+                    Utils.confirm('删除平台', '删除平台不会删除历史数据，但记录中的平台名称将显示为已删除。确认继续？', () => {
+                        state.platforms = state.platforms.filter(p => p.id !== id);
+                        Utils.logAction('删除平台', `ID: ${id}`);
+                        DataStore.saveLocal(); Render.activeView(); Utils.toast('删除成功');
+                    });
+                },
+                deleteRecord: (table, id) => {
+                    Utils.confirm('删除记录', '确认删除该条记录吗？删除后可在云端版本历史找回(若已同步)。', () => {
+                        state[table] = state[table].filter(r => r.id !== id);
+                        Utils.logAction('删除数据', `表: ${table}`);
+                        DataStore.saveLocal(); Render.activeView(); Utils.toast('删除成功');
+                    });
+                },
+
+                saveSettings: () => {
+                    state.settings.gistId = document.getElementById('set-gist-id').value.trim();
+                    state.settings.gistToken = document.getElementById('set-gist-token').value.trim();
+                    DataStore.saveLocal();
+                    Utils.toast('配置已自动保存');
+                },
+
+                copyText: (text) => {
+                    navigator.clipboard.writeText(text).then(() => Utils.toast('链接已复制到剪贴板')).catch(() => Utils.toast('复制失败', 'error'));
+                },
+
+                fullscreenChart: () => {
+                    if(!window._chartData) return;
+                    const container = document.createElement('div');
+                    container.className = 'chart-fullscreen';
+                    container.innerHTML = `
+                        <button class="absolute top-8 right-8 p-3 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600 transition z-50" onclick="this.parentElement.remove()">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                        <h2 class="text-2xl font-bold mb-8 text-gray-800">各品类消费占比分析</h2>
+                        <div class="w-full max-w-4xl h-[60vh] relative"><canvas id="fsChart"></canvas></div>
+                    `;
+                    document.body.appendChild(container);
+                    lucide.createIcons({ root: container });
+
+                    new Chart(document.getElementById('fsChart'), {
+                        type: 'pie',
+                        data: {
+                            labels: Object.keys(window._chartData).map(k => `${k} ( ¥${window._chartData[k]} )`),
+                            datasets: [{
+                                data: Object.values(window._chartData),
+                                backgroundColor: ['#d4af37', '#1f2937', '#9ca3af', '#f3f4f6'],
+                                borderWidth: 2, borderColor: '#fff'
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 16 }, padding: 20 } }, tooltip: { bodyFont: { size: 16 } } } }
+                    });
+                },
+
+                exportData: () => {
+                    if (typeof XLSX === 'undefined') return Utils.toast('导出库未加载完成', 'error');
+                    
+                    const wb = XLSX.utils.book_new();
+                    
+                    // 1. Stats Sheet
+                    const wsStats = XLSX.utils.json_to_sheet([
+                        { Metric: '导出时间', Value: new Date().toLocaleString() },
+                        { Metric: '总平台数', Value: state.platforms.length }
+                    ]);
+                    XLSX.utils.book_append_sheet(wb, wsStats, "报表概览");
+
+                    // 2. Expenses
+                    const exData = state.expenses.map(e => ({
+                        '日期': e.date,
+                        '平台': state.platforms.find(p=>p.id===e.platformId)?.name || '未知',
+                        '花费(元)': e.amount
+                    }));
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exData), "推广花费");
+
+                    // 3. Consultations
+                    const conData = [];
+                    state.consultations.forEach(c => {
+                        const platName = state.platforms.find(p=>p.id===c.platformId)?.name || '未知';
+                        c.items.forEach(item => {
+                            conData.push({
+                                '日期': c.date,
+                                '来源': platName,
+                                '分类': c.category,
+                                '具体品项': item.name,
+                                '人数': item.count,
+                                '金额(元)': item.amount
+                            });
+                        });
+                    });
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conData), "初诊明细");
+
+                    XLSX.writeFile(wb, `营销数据报表_${new Date().getTime()}.xlsx`);
+                    Utils.toast('Excel 导出成功');
+                    Utils.logAction('数据导出', '导出全量 Excel 报表');
+                }
+            };
+        })();
+
+        // Mobile Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            if(sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init();
+        });
+
+    </script>
+</body>
+</html>
