@@ -33,7 +33,7 @@
     <style>
         /* Custom Styles & Animations */
         body { background-color: #fcfcfc; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
-        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        。glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05); }
         .card { background: #ffffff; border-radius: 16px; box-shadow: var(--tw-shadow-apple); border: 1px solid #f0f0f0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .card:hover { box-shadow: var(--tw-shadow-apple-lg); }
         
@@ -139,7 +139,7 @@
             // 2. UTILS & HELPERS
             // ==========================================
             const Utils = {
-                generateId: () => Date.now().toString(36) + Math.random().toString(36).substring(2),
+                generateId: () => Date.当前().toString(36) + Math.random().toString(36).substring(2),
                 formatDate: (dateStr) => new Date(dateStr).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }),
                 formatMoney: (num) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 0 }).format(num),
                 logAction: (action, details) => {
@@ -150,7 +150,7 @@
                 toast: (msg, type = 'success') => {
                     const container = document.getElementById('toast-container');
                     const toast = document.createElement('div');
-                    toast.className = `toast border-l-4 ${type === 'error' ? 'border-red-500' : 'border-gold-500'}`;
+                    toast。className = `toast border-l-4 ${type === 'error' ? 'border-red-500' : 'border-gold-500'}`;
                     toast.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-circle' : 'check-circle'}" class="${type === 'error' ? 'text-red-500' : 'text-gold-500'} w-5 h-5"></i><span class="text-gray-700 font-medium">${msg}</span>`;
                     container.appendChild(toast);
                     lucide.createIcons({ root: toast });
@@ -173,7 +173,7 @@
                         </div>
                     `;
                     document.getElementById('modals').appendChild(dialog);
-                    dialog.showModal();
+                    dialog。showModal();
                     dialog.querySelector('.btn-cancel').onclick = () => { dialog.close(); dialog.remove(); };
                     dialog.querySelector('.btn-confirm').onclick = () => { onConfirm(); dialog.close(); dialog.remove(); };
                 },
@@ -287,7 +287,7 @@
             const Render = {
                 init: () => {
                     Render.sidebar();
-                    Render.activeView();
+                    Render。activeView();
                 },
                 sidebar: () => {
                     const menuHtml = menus.map(m => `
@@ -298,8 +298,8 @@
                         </a>
                     `).join('');
                     document.getElementById('nav-menu').innerHTML = menuHtml;
-                    lucide.createIcons();
-                },
+                    lucide。createIcons();
+                }，
                 activeView: () => {
                     const container = document.getElementById('view-container');
                     const title = document.getElementById('page-title');
